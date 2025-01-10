@@ -1,0 +1,40 @@
+{
+  "data": [
+    {
+      "topic": "Расписание занятий",
+      "is_purchase": false,
+      "call_end_time": "2024-10-11 11:40:21",
+      "response_time": "2024-10-11 11:38:22",
+      "purchase_amount": 0.0,
+      "satisfaction_score": 5.0,
+      "call_datetime": "2024-10-11 11:38:07",
+      "is_resolved": true,
+      "wait_time_seconds": 15.0,
+      "call_duration_seconds": 119.0
+    },
+    {
+      "topic": "Техническая поддержка",
+      "is_purchase": false,
+      "call_end_time": "2024-10-11 12:15:00",
+      "response_time": "2024-10-11 12:10:00",
+      "purchase_amount": 0.0,
+      "satisfaction_score": 4.5,
+      "call_datetime": "2024-10-11 12:05:00",
+      "is_resolved": true,
+      "wait_time_seconds": 300.0,
+      "call_duration_seconds": 600.0
+    },
+    {
+      "topic": "Оплата курса",
+      "is_purchase": true,
+      "call_end_time": "2024-10-11 13:30:00",
+      "response_time": "2024-10-11 13:25:00",
+      "purchase_amount": 15000.0,
+      "satisfaction_score": 4.8,
+      "call_datetime": "2024-10-11 13:20:00",
+      "is_resolved": true,
+      "wait_time_seconds": 300.0,
+      "call_duration_seconds": 600.0
+    }
+  ]
+}
