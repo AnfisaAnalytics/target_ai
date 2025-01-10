@@ -1,136 +1,276 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import plotly.express as px
-from datetime import datetime
+import plotly.graph_objects as go
 import json
+from datetime import datetime
+import numpy as np
 
-# Настройка страницы
+# Custom CSS styling
 st.set_page_config(
-    page_title="Анализ тикетов поддержки",
+    page_title="Support Dashboard",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Загрузка данных
+# Add custom CSS
+st.markdown("""
+    <style>
+        /* Main content styling */
+        .main {
+            padding: 2rem;
+        }
+        
+        /* Header styling */
+        .st-emotion-cache-10trblm e1nzilvr1 {
+            color: red;
+            font-size: 105rem !important;
+            font-weight: 700 !important;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #1E88E5;
+            margin-bottom: 2rem;
+        }
+        
+        /* Subheader styling */
+        .css-1outpf7 {
+            color: #424242;
+            font-size: 1.5rem !important;
+            padding-top: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        /* Metric containers */
+        [data-testid="stMetricValue"] {
+            font-size: 2rem !important;
+            color: #1E88E5 !important;
+            font-weight: 700 !important;
+        }
+        
+        [data-testid="stMetricLabel"] {
+            font-size: 1rem !important;
+            color: #616161 !important;
+        }
+        
+        /* Card-like styling for metrics */
+        [data-testid="stMetric"] {
+            background-color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        
+        [data-testid="stMetric"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        /* Sidebar styling */
+        .css-1d391kg {
+            padding: 2rem 1rem;
+        }
+        
+        .sidebar .sidebar-content {
+            background-color: #f8f9fa;
+        }
+        
+        /* Filter widgets styling */
+        .stSelectbox label, .stMultiSelect label {
+            color: #424242;
+            font-weight: 600;
+        }
+        
+        /* Chart containers */
+        .stPlotlyChart {
+            background-color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        /* Custom theme colors */
+        :root {
+            --primary-color: #1E88E5;
+            --background-color: #f8f9fa;
+            --text-color: #424242;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# Load and prepare data
 @st.cache_data
 def load_data():
     with open('data.json', 'r') as file:
         json_data = json.load(file)
     df = pd.DataFrame(json_data['data'])
-    df['created_at'] = pd.to_datetime(df['created_at'])
-    df['closed_at'] = pd.to_datetime(df['closed_at'])
+    
+    # Convert dates
+    date_columns = ['created_at', 'first_response_at', 'resolved_at']
+    for col in date_columns:
+        df[col] = pd.to_datetime(df[col])
+    
+    # Calculate resolution hours
+    df['resolution_hours'] = (df['resolved_at'] - df['created_at']).dt.total_seconds() / 3600
     return df
 
 df = load_data()
 
-# Заголовок
-st.title('📊 Анализ тикетов поддержки')
+# Sidebar with custom styling
+st.sidebar.markdown("""
+    <div style='text-align: center; padding: 1rem 0;'>
+        <h1 style='color: #1E88E5; font-size: 1.5rem; font-weight: 700;'>🎛️ jhjjjhj управления</h1>
+    </div>
+""", unsafe_allow_html=True)
 
-# Боковая панель с фильтрами
-st.sidebar.header('Фильтры')
-
-# Фильтр по дате
+# Date range filter with custom styling
+st.sidebar.markdown("### 📅 Период")
 date_range = st.sidebar.date_input(
-    "Выберите период",
-    [df['created_at'].min(), df['created_at'].max()]
+    "",  # Empty label as we use markdown above
+    [df['created_at'].min().date(), df['created_at'].max().date()]
 )
 
-# Фильтры по категориям
-categories = st.sidebar.multiselect(
-    'Категории',
-    options=df['category'].unique(),
-    default=df['category'].unique()
-)
-
-priorities = st.sidebar.multiselect(
-    'Приоритеты',
-    options=df['priority'].unique(),
-    default=df['priority'].unique()
-)
-
-teams = st.sidebar.multiselect(
-    'Команды',
+# Team filter with custom styling
+st.sidebar.markdown("### 👥 Команды")
+selected_teams = st.sidebar.multiselect(
+    '',  # Empty label as we use markdown above
     options=df['agent_team'].unique(),
     default=df['agent_team'].unique()
 )
 
-# Применение фильтров
+# Category filter with custom styling
+st.sidebar.markdown("### 📊 Категории")
+selected_categories = st.sidebar.multiselect(
+    '',  # Empty label as we use markdown above
+    options=df['category'].unique(),
+    default=df['category'].unique()
+)
+
+# Apply filters
 mask = (
     (df['created_at'].dt.date >= date_range[0]) &
     (df['created_at'].dt.date <= date_range[1]) &
-    (df['category'].isin(categories)) &
-    (df['priority'].isin(priorities)) &
-    (df['agent_team'].isin(teams))
+    (df['agent_team'].isin(selected_teams)) &
+    (df['category'].isin(selected_categories))
 )
 filtered_df = df[mask]
 
-# Основные метрики
-st.header('Основные метрики')
-col1, col2, col3, col4, col5 = st.columns(5)
+# Main dashboard with styled title
+st.markdown("""
+    <div style='text-align: center; padding: 2rem 0;'>
+        <h1 style='color: #1E88E5; font-size: 2.5rem; font-weight: 700;'>📊 Дашборд поддержки</h1>
+    </div>
+""", unsafe_allow_html=True)
+
+# KPI metrics with enhanced styling
+st.markdown("<div style='padding: 1rem 0;'>", unsafe_allow_html=True)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric("Всего тикетов", len(filtered_df))
+    st.metric(
+        "⏱️ Среднее время первого ответа",
+        f"{filtered_df['first_response_hours'].mean():.2f}ч"
+    )
+
 with col2:
-    st.metric("Среднее время ответа (ч)", 
-              round(filtered_df['first_response_hours'].mean(), 2))
+    st.metric(
+        "⌛ Среднее время разрешения",
+        f"{filtered_df['resolution_hours'].mean():.2f}ч"
+    )
+
 with col3:
-    st.metric("Среднее время решения (ч)", 
-              round(filtered_df['resolution_hours'].mean(), 2))
+    st.metric(
+        "⭐ Средняя оценка",
+        f"{filtered_df['satisfaction_score'].mean():.2f}"
+    )
+
 with col4:
-    st.metric("Средняя оценка", 
-              round(filtered_df['satisfaction_score'].mean(), 2))
-with col5:
-    st.metric("Процент эскалаций", 
-              round((filtered_df['is_escalated'].sum() / len(filtered_df)) * 100, 2))
+    high_satisfaction = (len(filtered_df[filtered_df['satisfaction_score'] >= 4]) / len(filtered_df)) * 100
+    st.metric(
+        "📈 % высоких оценок (4-5)",
+        f"{high_satisfaction:.1f}%"
+    )
+st.markdown("</div>", unsafe_allow_html=True)
 
-# Визуализации
-st.header('Визуализации')
+# Styled visualizations
+st.markdown("### 📊 Распределение времени первого ответа по командам")
+fig1 = px.box(
+    filtered_df,
+    x='agent_team',
+    y='first_response_hours',
+    color='agent_team',
+    template='plotly_white'
+)
+fig1.update_layout(
+    showlegend=False,
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    margin=dict(t=40, b=40, l=40, r=40),
+    font=dict(family="Arial, sans-serif", size=12)
+)
+st.plotly_chart(fig1, use_container_width=True)
 
-# Первый ряд графиков
+# Styled heatmap
+st.markdown("### 🌡️ Тепловая карта обращений")
+filtered_df['hour'] = filtered_df['created_at'].dt.hour
+filtered_df['weekday'] = filtered_df['created_at'].dt.day_name()
+hourly_data = pd.crosstab(filtered_df['weekday'], filtered_df['hour'])
+
+fig2 = go.Figure(data=go.Heatmap(
+    z=hourly_data.values,
+    x=hourly_data.columns,
+    y=hourly_data.index,
+    colorscale='Viridis'
+))
+fig2.update_layout(
+    xaxis_title='Час дня',
+    yaxis_title='День недели',
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    margin=dict(t=40, b=40, l=40, r=40),
+    font=dict(family="Arial, sans-serif", size=12)
+)
+st.plotly_chart(fig2, use_container_width=True)
+
+# Styled satisfaction funnel
+st.markdown("### 🎯 Воронка удовлетворенности")
+satisfaction_funnel = filtered_df['satisfaction_score'].value_counts().sort_index(ascending=False)
+
+fig3 = go.Figure(go.Funnel(
+    y=['5 звезд ⭐⭐⭐⭐⭐', '4 звезды ⭐⭐⭐⭐', '3 звезды ⭐⭐⭐', '2 звезды ⭐⭐', '1 звезда ⭐'],
+    x=satisfaction_funnel.values,
+    textinfo="value+percent initial",
+    marker=dict(color=['#4CAF50', '#8BC34A', '#FFC107', '#FF9800', '#F44336'])
+))
+fig3.update_layout(
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    margin=dict(t=40, b=40, l=40, r=40),
+    font=dict(family="Arial, sans-serif", size=12)
+)
+st.plotly_chart(fig3, use_container_width=True)
+
+# Styled additional metrics
+st.markdown("### 📈 Дополнительные метрики")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader('Время ответа по приоритетам')
-    fig = px.box(filtered_df, x='priority', y='first_response_hours',
-                 title='Время первого ответа по приоритетам')
-    st.plotly_chart(fig, use_container_width=True)
+    st.metric(
+        "⏱️ Медианное время первого ответа",
+        f"{filtered_df['first_response_hours'].median():.2f}ч"
+    )
+    st.metric(
+        "⌛ 90-й перцентиль времени разрешения",
+        f"{filtered_df['resolution_hours'].quantile(0.9):.2f}ч"
+    )
 
 with col2:
-    st.subheader('Корреляционная матрица')
-    correlation_matrix = filtered_df[['first_response_hours', 'resolution_hours', 
-                                    'satisfaction_score', 'message_count']].corr()
-    fig = px.imshow(correlation_matrix, 
-                    text=correlation_matrix.round(2),
-                    aspect='auto',
-                    color_continuous_scale='RdBu')
-    st.plotly_chart(fig, use_container_width=True)
-
-# Второй ряд графиков
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.subheader('Распределение по приоритетам')
-    fig = px.pie(filtered_df, names='priority',
-                 title='Распределение тикетов по приоритетам')
-    st.plotly_chart(fig, use_container_width=True)
-
-with col2:
-    st.subheader('Распределение по категориям')
-    fig = px.pie(filtered_df, names='category',
-                 title='Распределение тикетов по категориям')
-    st.plotly_chart(fig, use_container_width=True)
-
-with col3:
-    st.subheader('Распределение по командам')
-    fig = px.pie(filtered_df, names='agent_team',
-                 title='Распределение тикетов по командам')
-    st.plotly_chart(fig, use_container_width=True)
-
-# Таблица с данными
-st.header('Детальные данные')
-st.dataframe(
-    filtered_df.sort_values('created_at', ascending=False),
-    use_container_width=True
-)
+    st.metric(
+        "👎 Тикеты с низкой оценкой (1-2)",
+        len(filtered_df[filtered_df['satisfaction_score'] <= 2])
+    )
+    st.metric(
+        "💬 Среднее кол-во сообщений",
+        f"{filtered_df['message_count'].mean():.1f}"
+    )
