@@ -28,7 +28,7 @@ try:
     df = load_data()
     
     # Заголовок
-    st.title('📊 Support Analytics Dashboard')
+    st.title('Support Analytics Dashboard')
     
     # Основные метрики в колонках
     col1, col2, col3 = st.columns(3)
