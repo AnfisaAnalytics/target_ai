@@ -1,103 +1,97 @@
-import streamlit as st
+from dash import Dash, html, dcc, Input, Output
 import pandas as pd
 import plotly.express as px
 import json
 from datetime import datetime, timedelta
 
-# Настройка цветовой палитры
-color_palette = ['rgba(239, 132, 50, 0.7)', 'rgba(46, 96, 107, 0.7)', 
-                'rgba(4, 21, 35, 0.7)', 'rgba(111, 46, 24, 0.7)', 
+# Initialize Dash app
+app = Dash(__name__)
+
+# Color palette
+color_palette = ['rgba(239, 132, 50, 0.7)', 'rgba(46, 96, 107, 0.7)',
+                'rgba(4, 21, 35, 0.7)', 'rgba(111, 46, 24, 0.7)',
                 'rgba(122, 85, 86, 0.7)', 'rgba(146, 151, 172, 0.7)']
 
-# Конфигурация страницы
-st.set_page_config(
-    page_title="Аналитика поддержки",
-    page_icon="📊",
-    layout="wide"
-)
-
-# Обновленные стили CSS
-st.markdown("""
-    <style>
-        /* Основные контейнеры */
-        .stApp {
-            background-color: #f0f2f6 !important;
-        }
-        
-        .main {
-            padding: 1rem 2rem !important;
-        }
-        
-        /* Карточки с метриками и графиками */
-        .stMetric, .element-container, .stDataFrame {
-            padding: 1.5rem !important;
-            border-radius: 8px !important;
-            margin-bottom: 1rem !important;
-        }
-        /* Кнопки */
-        div.stButton > button {
-            background-color: white !important;
-            border: 1px solid #e0e0e0 !important;
-            padding: 0.5rem 1rem !important;
-            border-radius: 4px !important;
-            font-weight: 500 !important;
-            color: #333 !important;
-            width: 100% !important;
-        }
-        
-        div.stButton > button:hover {
-            background-color: #f8f9fa !important;
-            border-color: #ccc !important;
-        }
-        
-        div.stButton > button:focus {
-            background-color: #ef8432 !important;
-            color: white !important;
-            border-color: #ef8432 !important;
-        }
-        
-        /* Графики */
-        .js-plotly-plot {
-            background-color: white !important;
-            border-radius: 8px !important;
-            padding: 1rem !important;
-        }
-        
-        /* Заголовки */
-        h1, h2, h3 {
-            color: #2e606b !important;
-            font-weight: 600 !important;
-        }
-
-        /* Контейнеры с графиками */
-        .chart-container {
-            background-color: white !important;
-            padding: 1.5rem !important;
-            border-radius: 8px !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-            margin-bottom: 1rem !important;
-        }
-        #root > div:nth-child(1) > div.withScreencast > div > div > section > div.stMainBlockContainer.block-container.st-emotion-cache-1ibsh2c.ekr3hml4 > div{
-        background:#fff;
-        border-radius:22px;}
-        .st-emotion-cache-12fmjuu{
-        z-index:-1;}
-    </style>
-""", unsafe_allow_html=True)
+# Custom CSS
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>Аналитика поддержки</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            body {
+                background-color: #f0f2f6;
+                margin: 0;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            }
+            .dash-container {
+                padding: 2rem;
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+            .metric-card {
+                background: white;
+                padding: 1.5rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                margin-bottom: 1rem;
+            }
+            .chart-container {
+                background: white;
+                padding: 1.5rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                margin-bottom: 1rem;
+            }
+            h1, h2, h3 {
+                color: #2e606b;
+                font-weight: 600;
+            }
+            .time-filter button {
+                background-color: white;
+                border: 1px solid #e0e0e0;
+                padding: 0.5rem 1rem;
+                border-radius: 4px;
+                font-weight: 500;
+                color: #333;
+                margin-right: 0.5rem;
+                cursor: pointer;
+            }
+            .time-filter button:hover {
+                background-color: #f8f9fa;
+                border-color: #ccc;
+            }
+            .time-filter button.active {
+                background-color: #ef8432;
+                color: white;
+                border-color: #ef8432;
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
 
 def load_data(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         json_data = json.load(f)
     
-    # Convert the data list to DataFrame
     df = pd.DataFrame(json_data['data'])
     
-    # Convert datetime columns
     datetime_cols = ['Дата и время звонка', 'Время ответа', 'Дата и время решения вопроса']
     for col in datetime_cols:
         df[col] = pd.to_datetime(df[col])
     
-    # Calculate response and resolution times in minutes
     df['Время ответа (мин)'] = (df['Время ответа'] - df['Дата и время звонка']).dt.total_seconds() / 60
     df['Время решения (мин)'] = (df['Дата и время решения вопроса'] - df['Дата и время звонка']).dt.total_seconds() / 60
     
@@ -105,135 +99,192 @@ def load_data(file_path):
 
 def filter_data_by_timerange(df, timerange):
     now = datetime.now()
-    if timerange == "Сегодня":
+    if timerange == "today":
         start_date = now - timedelta(days=1)
-    elif timerange == "Неделя":
+    elif timerange == "week":
         start_date = now - timedelta(days=7)
-    elif timerange == "Месяц":
+    elif timerange == "month":
         start_date = now - timedelta(days=30)
-    elif timerange == "Год":
+    elif timerange == "year":
         start_date = now - timedelta(days=365)
-    else:  # Все данные
+    else:  # all data
         return df
     
     return df[df['Дата и время звонка'] >= start_date]
 
-def main():
-    try:
-        # Загрузка данных
-        df = load_data('data.json')
-        
-        # Заголовок и фильтры в две колонки
-        header_col1, header_col2 = st.columns([0.4, 0.6])
-        
-        with header_col1:
-            st.title("📊 Аналитика поддержки")
-            st.markdown("### Анализ эффективности в реальном времени")
-        
-        with header_col2:
-            st.markdown("### Выберите период")
-            filter_cols = st.columns(5)
-            
-            # Initialize session state
-            if 'active_timerange' not in st.session_state:
-                st.session_state.active_timerange = "Все данные"
-            
-            # Кнопки периодов
-            time_ranges = ["Сегодня", "Неделя", "Месяц", "Год", "Все данные"]
-            for i, time_range in enumerate(time_ranges):
-                with filter_cols[i]:
-                    if st.button(
-                        time_range,
-                        type="primary" if st.session_state.active_timerange == time_range else "secondary"
-                    ):
-                        st.session_state.active_timerange = time_range
-        
-        # Фильтрация данных
-        filtered_df = filter_data_by_timerange(df, st.session_state.active_timerange)
-        
-        # Расчет метрик
-        metrics = {
-            'avg_response_time': filtered_df['Время ответа (мин)'].mean(),
-            'avg_resolution_time': filtered_df['Время решения (мин)'].mean(),
-            'resolution_rate': (filtered_df['Решение вопроса'].mean() * 100),
-            'avg_satisfaction': filtered_df['Оценка удовлетворённости'].mean()
-        }
-        
-        # Отображение метрик
-        st.markdown("### Ключевые показатели")
-        metric_cols = st.columns(4)
-        
-        with metric_cols[0]:
-            st.metric("Среднее время ответа", f"{metrics['avg_response_time']:.2f} мин")
-        with metric_cols[1]:
-            st.metric("Среднее время решения", f"{metrics['avg_resolution_time']:.2f} мин")
-        with metric_cols[2]:
-            st.metric("Процент решения", f"{metrics['resolution_rate']:.1f}%")
-        with metric_cols[3]:
-            st.metric("Средняя оценка", f"{metrics['avg_satisfaction']:.1f}/5")
-        
-        # Первый ряд графиков
-        col1, col2 = st.columns([0.7, 0.3])
-        
-        with col1:
-            st.markdown("### Анализ времени ответа")
-            fig_response = px.bar(
-                filtered_df,
-                x='Услуга',
-                y='Время ответа (мин)',
-                color='Тема звонка',
-                title="Время ответа по услугам и темам",
-                color_discrete_sequence=color_palette
-            )
-            st.plotly_chart(fig_response, use_container_width=True)
-        
-        with col2:
-            st.markdown("### Распределение услуг")
-            fig_service = px.pie(
-                filtered_df,
-                names='Услуга',
-                title="Распределение по услугам",
-                color_discrete_sequence=color_palette
-            )
-            st.plotly_chart(fig_service, use_container_width=True)
-        
-        # Второй ряд графиков
-        col3, col4 = st.columns([0.4, 0.6])
-        
-        with col3:
-            st.markdown("### Оценки клиентов")
-            fig_satisfaction = px.histogram(
-                filtered_df,
-                x='Оценка удовлетворённости',
-                title="Распределение оценок",
-                nbins=5,
-                color_discrete_sequence=[color_palette[0]]
-            )
-            st.plotly_chart(fig_satisfaction, use_container_width=True)
-        
-        with col4:
-            st.markdown("### Динамика времени решения")
-            fig_resolution = px.line(
-                filtered_df,
-                x='Дата и время звонка',
-                y='Время решения (мин)',
-                title="Тренд времени решения",
-                color_discrete_sequence=[color_palette[1]]
-            )
-            st.plotly_chart(fig_resolution, use_container_width=True)
+# Load initial data
+df = load_data('data.json')
 
-        # Таблица данных
-        st.markdown("### Детальные данные")
-        st.dataframe(
-            filtered_df[[
-                'Услуга', 'Тема звонка', 'Время ответа (мин)',
-                'Время решения (мин)', 'Оценка удовлетворённости', 'Решение вопроса'
-            ]],
-            use_container_width=True
+# Layout
+app.layout = html.Div([
+    # Header
+    html.Div([
+        html.H1("📊 Аналитика поддержки", className="header-title"),
+        html.H3("Анализ эффективности в реальном времени"),
+        
+        # Time range filter
+        html.Div([
+            html.H3("Выберите период"),
+            dcc.RadioItems(
+                id='time-filter',
+                options=[
+                    {'label': 'Сегодня', 'value': 'today'},
+                    {'label': 'Неделя', 'value': 'week'},
+                    {'label': 'Месяц', 'value': 'month'},
+                    {'label': 'Год', 'value': 'year'},
+                    {'label': 'Все данные', 'value': 'all'}
+                ],
+                value='all',
+                className='time-filter'
+            )
+        ]),
+    ], className="header"),
+    
+    # Metrics
+    html.Div([
+        html.Div([
+            html.H3("Ключевые показатели"),
+            html.Div([
+                html.Div(id='avg-response-time', className='metric-card'),
+                html.Div(id='avg-resolution-time', className='metric-card'),
+                html.Div(id='resolution-rate', className='metric-card'),
+                html.Div(id='avg-satisfaction', className='metric-card')
+            ], style={'display': 'grid', 'gridTemplateColumns': 'repeat(4, 1fr)', 'gap': '1rem'})
+        ])
+    ]),
+    
+    # Charts - First Row
+    html.Div([
+        html.Div([
+            dcc.Graph(id='response-time-chart')
+        ], className='chart-container', style={'width': '70%'}),
+        html.Div([
+            dcc.Graph(id='service-distribution-chart')
+        ], className='chart-container', style={'width': '30%'})
+    ], style={'display': 'flex', 'gap': '1rem'}),
+    
+    # Charts - Second Row
+    html.Div([
+        html.Div([
+            dcc.Graph(id='satisfaction-chart')
+        ], className='chart-container', style={'width': '40%'}),
+        html.Div([
+            dcc.Graph(id='resolution-time-trend')
+        ], className='chart-container', style={'width': '60%'})
+    ], style={'display': 'flex', 'gap': '1rem'}),
+    
+    # Data Table
+    html.Div([
+        html.H3("Детальные данные"),
+        dash_table.DataTable(
+            id='data-table',
+            columns=[
+                {'name': col, 'id': col} for col in [
+                    'Услуга', 'Тема звонка', 'Время ответа (мин)',
+                    'Время решения (мин)', 'Оценка удовлетворённости', 'Решение вопроса'
+                ]
+            ],
+            style_table={'overflowX': 'auto'},
+            style_cell={
+                'textAlign': 'left',
+                'padding': '10px'
+            },
+            style_header={
+                'backgroundColor': '#f8f9fa',
+                'fontWeight': 'bold'
+            }
         )
-        
-    except Exception as e:
-        st.error(f"Ошибка при загрузке или обработке данных: {str(e)}")
+    ], className='chart-container')
+], className='dash-container')
 
-if __name__ == "__main__":
-    main()
+# Callbacks
+@app.callback(
+    [Output('avg-response-time', 'children'),
+     Output('avg-resolution-time', 'children'),
+     Output('resolution-rate', 'children'),
+     Output('avg-satisfaction', 'children'),
+     Output('response-time-chart', 'figure'),
+     Output('service-distribution-chart', 'figure'),
+     Output('satisfaction-chart', 'figure'),
+     Output('resolution-time-trend', 'figure'),
+     Output('data-table', 'data')],
+    [Input('time-filter', 'value')]
+)
+def update_dashboard(timerange):
+    filtered_df = filter_data_by_timerange(df, timerange)
+    
+    # Calculate metrics
+    avg_response = filtered_df['Время ответа (мин)'].mean()
+    avg_resolution = filtered_df['Время решения (мин)'].mean()
+    resolution_rate = filtered_df['Решение вопроса'].mean() * 100
+    avg_satisfaction = filtered_df['Оценка удовлетворённости'].mean()
+    
+    # Create charts
+    response_time_fig = px.bar(
+        filtered_df,
+        x='Услуга',
+        y='Время ответа (мин)',
+        color='Тема звонка',
+        title="Время ответа по услугам и темам",
+        color_discrete_sequence=color_palette
+    )
+    
+    service_dist_fig = px.pie(
+        filtered_df,
+        names='Услуга',
+        title="Распределение по услугам",
+        color_discrete_sequence=color_palette
+    )
+    
+    satisfaction_fig = px.histogram(
+        filtered_df,
+        x='Оценка удовлетворённости',
+        title="Распределение оценок",
+        nbins=5,
+        color_discrete_sequence=[color_palette[0]]
+    )
+    
+    resolution_trend_fig = px.line(
+        filtered_df,
+        x='Дата и время звонка',
+        y='Время решения (мин)',
+        title="Тренд времени решения",
+        color_discrete_sequence=[color_palette[1]]
+    )
+    
+    # Format metrics
+    metrics = [
+        html.Div([
+            html.H4("Среднее время ответа"),
+            html.P(f"{avg_response:.2f} мин")
+        ]),
+        html.Div([
+            html.H4("Среднее время решения"),
+            html.P(f"{avg_resolution:.2f} мин")
+        ]),
+        html.Div([
+            html.H4("Процент решения"),
+            html.P(f"{resolution_rate:.1f}%")
+        ]),
+        html.Div([
+            html.H4("Средняя оценка"),
+            html.P(f"{avg_satisfaction:.1f}/5")
+        ])
+    ]
+    
+    # Table data
+    table_data = filtered_df[[
+        'Услуга', 'Тема звонка', 'Время ответа (мин)',
+        'Время решения (мин)', 'Оценка удовлетворённости', 'Решение вопроса'
+    ]].to_dict('records')
+    
+    return metrics + [
+        response_time_fig,
+        service_dist_fig,
+        satisfaction_fig,
+        resolution_trend_fig,
+        table_data
+    ]
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
