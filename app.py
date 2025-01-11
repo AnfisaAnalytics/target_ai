@@ -1,214 +1,152 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import json
-from datetime import datetime, timedelta
+import plotly.graph_objects as go
+from datetime import datetime
+import numpy as np
+from fpdf import FPDF
+import io
+import base64
 
-# Set page config
+# Настройка страницы
 st.set_page_config(
-    page_title="DDmmX",
+    page_title="Анализ службы поддержки",
     page_icon="📊",
     layout="wide"
 )
 
-# Enhanced CSS with explicit background colors and more specific selectors
-st.markdown("""
-    <style>
-        /* Reset background colors for all major containers */
-        .stApp {
-            background-color: white !important;
-        }
-        .st-emotion-cache-z5fcl4{
-        padding:1rem 1rem;}
-        .main {
-            background-color: white !important;
-        }
-        
-        body {
-            background-color: white !important;
-        }
-        
-        .metric-card {
-            background-color: #f8f9fa !important;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-        }
-        
-        .chart-container {
-            background-color: white !important;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-            margin-bottom: 2rem;
-        }
-        
-        div.stButton > button {
-            background-color: #f8f9fa !important;
-            border: 1px solid #dee2e6;
-            padding: 0.5rem 1rem;
-            margin-right: 0.5rem;
-        }
-        
-        div.stButton > button:hover {
-            background-color: #e9ecef !important;
-            border-color: #dee2e6;
-        }
-        
-        div.stButton > button:focus {
-            background-color: #0d6efd !important;
-            color: white;
-            border-color: #0d6efd;
-        }
-        
-        /* Force white background on plot containers */
-        .js-plotly-plot {
-            background-color: white !important;
-        }
-        
-        /* Additional reset for any inherited backgrounds */
-        [data-testid="stAppViewContainer"] {
-            background-color: white !important;
-        }
-        
-        [data-testid="stHeader"] {
-            background-color: white !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
+# Цветовая палитра
+COLOR_PALETTE = {
+    'primary': '#FF6B6B',     # Коралловый
+    'secondary': '#4ECDC4',   # Бирюзовый
+    'accent1': '#45B7D1',     # Голубой
+    'accent2': '#96CEB4',     # Мятный
+    'accent3': '#FFEEAD',     # Пастельный желтый
+}
 
-def load_data(file_path):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        json_data = json.load(f)
+def load_data():
+    # Здесь мы создаем пример данных, в реальности здесь будет загрузка JSON
+    data = {
+        "Дата и время звонка": ["2024-11-30T17:01:27.859983"],
+        "Тема звонка": ["Проблема с доступом"],
+        "Услуга": ["Индивидуальные тренировки"],
+        "Время ответа": ["2024-11-30T17:02:52.015785"],
+        "Оценка удовлетворённости": [5],
+        "Дата и время решения вопроса": ["2024-11-30T17:36:58.786956"],
+        "Решение вопроса": [True]
+    }
+    df = pd.DataFrame(data)
     
-    # Convert the data list to DataFrame
-    df = pd.DataFrame(json_data['data'])
-    
-    # Convert datetime columns
-    datetime_cols = ['Дата и время звонка', 'Время ответа', 'Дата и время решения вопроса']
-    for col in datetime_cols:
+    # Преобразование строковых дат в datetime
+    date_columns = ["Дата и время звонка", "Время ответа", "Дата и время решения вопроса"]
+    for col in date_columns:
         df[col] = pd.to_datetime(df[col])
     
-    # Calculate response and resolution times in minutes
-    df['Response Time (min)'] = (df['Время ответа'] - df['Дата и время звонка']).dt.total_seconds() / 60
-    df['Resolution Time (min)'] = (df['Дата и время решения вопроса'] - df['Дата и время звонка']).dt.total_seconds() / 60
+    # Расчет времени ответа и решения в минутах
+    df['Время до ответа (мин)'] = ((df['Время ответа'] - df['Дата и время звонка']).dt.total_seconds() / 60)
+    df['Время до решения (мин)'] = ((df['Дата и время решения вопроса'] - df['Дата и время звонка']).dt.total_seconds() / 60)
     
     return df
 
-def filter_data_by_timerange(df, timerange):
-    now = datetime.now()
-    if timerange == "Today":
-        start_date = now - timedelta(days=1)
-    elif timerange == "Last Week":
-        start_date = now - timedelta(days=7)
-    elif timerange == "Last Month":
-        start_date = now - timedelta(days=30)
-    elif timerange == "Last Year":
-        start_date = now - timedelta(days=365)
-    else:  # All Data
-        return df
+def create_metrics(df):
+    avg_response_time = df['Время до ответа (мин)'].mean()
+    avg_resolution_time = df['Время до решения (мин)'].mean()
+    satisfaction_rate = df['Оценка удовлетворённости'].mean()
+    resolution_rate = (df['Решение вопроса'].sum() / len(df)) * 100
     
-    return df[df['Дата и время звонка'] >= start_date]
+    return avg_response_time, avg_resolution_time, satisfaction_rate, resolution_rate
+
+def create_plots(df):
+    # График распределения тем обращений
+    topic_fig = px.bar(
+        df['Тема звонка'].value_counts().reset_index(),
+        x='index',
+        y='Тема звонка',
+        title='Распределение тем обращений',
+        color_discrete_sequence=[COLOR_PALETTE['primary']],
+        labels={'index': 'Тема', 'Тема звонка': 'Количество обращений'}
+    )
+    
+    # График распределения по услугам
+    service_fig = px.bar(
+        df['Услуга'].value_counts().reset_index(),
+        x='index',
+        y='Услуга',
+        title='Распределение по услугам',
+        color_discrete_sequence=[COLOR_PALETTE['secondary']],
+        labels={'index': 'Услуга', 'Услуга': 'Количество обращений'}
+    )
+    
+    # График удовлетворенности по времени
+    satisfaction_fig = px.scatter(
+        df,
+        x='Время до решения (мин)',
+        y='Оценка удовлетворённости',
+        title='Зависимость удовлетворенности от времени решения',
+        color_discrete_sequence=[COLOR_PALETTE['accent1']]
+    )
+    
+    return topic_fig, service_fig, satisfaction_fig
+
+def create_pdf_report(df, metrics):
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Заголовок
+    pdf.set_font('Arial', 'B', 16)
+    pdf.cell(0, 10, 'Отчет по работе службы поддержки', 0, 1, 'C')
+    pdf.ln(10)
+    
+    # Основные метрики
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, 'Ключевые показатели:', 0, 1)
+    pdf.set_font('Arial', '', 12)
+    pdf.cell(0, 10, f'Среднее время ответа: {metrics[0]:.2f} мин', 0, 1)
+    pdf.cell(0, 10, f'Среднее время решения: {metrics[1]:.2f} мин', 0, 1)
+    pdf.cell(0, 10, f'Средняя оценка: {metrics[2]:.2f}', 0, 1)
+    pdf.cell(0, 10, f'Процент решенных обращений: {metrics[3]:.1f}%', 0, 1)
+    
+    # Сохранение PDF в буфер
+    pdf_buffer = io.BytesIO()
+    pdf.output(pdf_buffer)
+    pdf_buffer.seek(0)
+    
+    return pdf_buffer
 
 def main():
-    st.title("🎯 Support Service Analytics Dashboard")
-    st.markdown("### Real-time analytics for customer support performance")
+    st.title('📊 Анализ эффективности службы поддержки')
     
-    try:
-        # Load data
-        df = load_data('data.json')
-        
-        # Time range filter buttons
-        st.markdown("### Select Time Range")
-        col1, col2, col3, col4, col5 = st.columns(5)
-        
-        # Initialize session state for active button if it doesn't exist
-        if 'active_timerange' not in st.session_state:
-            st.session_state.active_timerange = "All Data"
-        
-        # Create buttons for each time range
-        if col1.button("Today", type="primary" if st.session_state.active_timerange == "Today" else "secondary"):
-            st.session_state.active_timerange = "Today"
-        if col2.button("Last Week", type="primary" if st.session_state.active_timerange == "Last Week" else "secondary"):
-            st.session_state.active_timerange = "Last Week"
-        if col3.button("Last Month", type="primary" if st.session_state.active_timerange == "Last Month" else "secondary"):
-            st.session_state.active_timerange = "Last Month"
-        if col4.button("Last Year", type="primary" if st.session_state.active_timerange == "Last Year" else "secondary"):
-            st.session_state.active_timerange = "Last Year"
-        if col5.button("All Data", type="primary" if st.session_state.active_timerange == "All Data" else "secondary"):
-            st.session_state.active_timerange = "All Data"
-        
-        # Filter data based on selected time range
-        filtered_df = filter_data_by_timerange(df, st.session_state.active_timerange)
-        
-        # Calculate metrics
-        metrics = {
-            'avg_response_time': filtered_df['Response Time (min)'].mean(),
-            'avg_resolution_time': filtered_df['Resolution Time (min)'].mean(),
-            'resolution_rate': (filtered_df['Решение вопроса'].mean() * 100),
-            'avg_satisfaction': filtered_df['Оценка удовлетворённости'].mean()
-        }
-        
-        # Replace the visualization section with this code:
-
-        # First row of charts - Response Time and Service Distribution
-        col1, col2 = st.columns([0.7, 0.3])  # 70% and 30% width ratio
-        
-        with col1:
-            st.subheader("Response Time Analysis")
-            fig_response = px.bar(
-                filtered_df,
-                x='Услуга',
-                y='Response Time (min)',
-                color='Тема звонка',
-                title="Response Time by Service and Topic"
-            )
-            st.plotly_chart(fig_response, use_container_width=True)
-        
-        with col2:
-            st.subheader("Service Distribution")
-            fig_service = px.pie(
-                filtered_df,
-                names='Услуга',
-                title="Distribution of Services"
-            )
-            st.plotly_chart(fig_service, use_container_width=True)
-        
-        # Second row of charts - Satisfaction Distribution and another metric
-        col3, col4 = st.columns([0.4, 0.6])  # 40% and 60% width ratio
-        
-        with col3:
-            st.subheader("Satisfaction Distribution")
-            fig_satisfaction = px.histogram(
-                filtered_df,
-                x='Оценка удовлетворённости',
-                title="Distribution of Satisfaction Scores",
-                nbins=5
-            )
-            st.plotly_chart(fig_satisfaction, use_container_width=True)
-        
-        with col4:
-            st.subheader("Resolution Time Analysis")
-            fig_resolution = px.line(
-                filtered_df,
-                x='Дата и время звонка',
-                y='Resolution Time (min)',
-                title="Resolution Time Trend"
-            )
-            st.plotly_chart(fig_resolution, use_container_width=True)
-
-        # Data table
-        st.subheader("Detailed Data View")
-        st.dataframe(
-            filtered_df[[
-                'Услуга', 'Тема звонка', 'Response Time (min)',
-                'Resolution Time (min)', 'Оценка удовлетворённости', 'Решение вопроса'
-            ]],
-            use_container_width=True
-        )
-        
-    except Exception as e:
-        st.error(f"Error loading or processing data: {str(e)}")
+    # Загрузка данных
+    df = load_data()
+    
+    # Расчет метрик
+    metrics = create_metrics(df)
+    
+    # Отображение основных метрик
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Среднее время ответа", f"{metrics[0]:.2f} мин")
+    with col2:
+        st.metric("Среднее время решения", f"{metrics[1]:.2f} мин")
+    with col3:
+        st.metric("Средняя оценка", f"{metrics[2]:.2f}")
+    with col4:
+        st.metric("Процент решения", f"{metrics[3]:.1f}%")
+    
+    # Создание графиков
+    topic_fig, service_fig, satisfaction_fig = create_plots(df)
+    
+    # Отображение графиков
+    st.plotly_chart(topic_fig, use_container_width=True)
+    st.plotly_chart(service_fig, use_container_width=True)
+    st.plotly_chart(satisfaction_fig, use_container_width=True)
+    
+    # Кнопка для создания PDF-отчета
+    if st.button('Сгенерировать PDF-отчет'):
+        pdf_buffer = create_pdf_report(df, metrics)
+        b64_pdf = base64.b64encode(pdf_buffer.read()).decode()
+        href = f'<a href="data:application/pdf;base64,{b64_pdf}" download="support_report.pdf">Скачать PDF-отчет</a>'
+        st.markdown(href, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
