@@ -27,7 +27,9 @@ st.markdown("""
         .main {
             padding: 1rem 2rem !important;
         }
-        
+        .stMetric, .element-container, .stDataFrame{
+        box-shadow:0 2px 4px rgba(0,0,0,0) !important;
+        }
         /* Карточки с метриками и графиками */
         .stMetric, .element-container, .stDataFrame {
             background-color: white !important;
