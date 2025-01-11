@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 # Set page config
 st.set_page_config(
-    page_title="DDmmX",
+    page_title="DDx",
     page_icon="📊",
     layout="wide"
 )
