@@ -30,14 +30,9 @@ st.markdown("""
         
         /* Карточки с метриками и графиками */
         .stMetric, .element-container, .stDataFrame {
-            background-color: white !important;
             padding: 1.5rem !important;
             border-radius: 8px !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
             margin-bottom: 1rem !important;
-        }
-        .stMetric, .element-container, .stDataFrame{
-        box-shadow:0 2px 4px rgba(0,0,0,0) !important;
         }
         /* Кнопки */
         div.stButton > button {
@@ -82,6 +77,9 @@ st.markdown("""
             box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
             margin-bottom: 1rem !important;
         }
+        #root > div:nth-child(1) > div.withScreencast > div > div > section > div.stMainBlockContainer.block-container.st-emotion-cache-1ibsh2c.ekr3hml4 > div{
+        background:#fff;
+        border-radius:22px;
     </style>
 """, unsafe_allow_html=True)
 
