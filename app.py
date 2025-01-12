@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, time
 import numpy as np
+import json
 
 # Set page configuration
 st.set_page_config(
@@ -15,43 +16,43 @@ st.set_page_config(
 # Function to load and prepare data
 @st.cache_data
 def load_data():
-    # В реальном приложении здесь будет загрузка JSON
-    # Для примера используем предоставленные данные
-    df = pd.DataFrame([
-        {
-            "Дата и время звонка": "2024-11-30T17:01:27.859983",
-            "Тема звонка": "Проблема с доступом",
-            "Услуга": "Индивидуальные тренировки",
-            "Время ответа": "2024-11-30T17:02:52.015785",
-            "Оценка удовлетворённости": 5,
-            "Дата и время решения вопроса": "2024-11-30T17:36:58.786956",
-            "Решение вопроса": True
-        },
-        {
-            "Дата и время звонка": "2024-11-30T08:37:10.859983",
-            "Тема звонка": "Техническая поддержка",
-            "Услуга": "Индивидуальные тренировки",
-            "Время ответа": "2024-11-30T08:39:38.120836",
-            "Оценка удовлетворённости": 4,
-            "Дата и время решения вопроса": "2024-11-30T09:25:49.403060",
-            "Решение вопроса": True
-        }
-    ])
-    
-    # Преобразование строковых дат в datetime
-    date_columns = ["Дата и время звонка", "Время ответа", "Дата и время решения вопроса"]
-    for col in date_columns:
-        df[col] = pd.to_datetime(df[col])
-    
-    # Добавление дополнительных колонок для анализа
-    df['День недели'] = df['Дата и время звонка'].dt.day_name()
-    df['Час'] = df['Дата и время звонка'].dt.hour
-    df['Время ожидания'] = (df['Время ответа'] - df['Дата и время звонка']).dt.total_seconds() / 60
-    
-    return df
+    try:
+        # Загрузка данных из JSON файла
+        with open('data.json', 'r', encoding='utf-8') as file:
+            json_data = json.load(file)
+        
+        # Создание DataFrame из данных
+        df = pd.DataFrame(json_data['data'])
+        
+        # Преобразование строковых дат в datetime
+        date_columns = ["Дата и время звонка", "Время ответа", "Дата и время решения вопроса"]
+        for col in date_columns:
+            df[col] = pd.to_datetime(df[col])
+        
+        # Добавление дополнительных колонок для анализа
+        df['День недели'] = df['Дата и время звонка'].dt.day_name()
+        df['Час'] = df['Дата и время звонка'].dt.hour
+        df['Время ожидания'] = (df['Время ответа'] - df['Дата и время звонка']).dt.total_seconds() / 60
+        
+        return df
+    except FileNotFoundError:
+        st.error("Файл data.json не найден!")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Ошибка при загрузке данных: {str(e)}")
+        return pd.DataFrame()
 
 # Функции для расчета KPI
 def calculate_kpis(df):
+    if df.empty:
+        return {
+            "repeat_percentage": 0.0,
+            "avg_wait_time": 0.0,
+            "lost_calls": 0,
+            "cost_per_call": 500,
+            "after_hours_percentage": 0.0
+        }
+    
     # 1. Процент повторяющихся запросов
     total_requests = len(df)
     repeated_requests = df['Тема звонка'].value_counts()
@@ -88,6 +89,11 @@ def main():
     
     # Загрузка данных
     df = load_data()
+    
+    if df.empty:
+        st.warning("Нет данных для отображения")
+        return
+        
     kpis = calculate_kpis(df)
     
     # KPI секция
