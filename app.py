@@ -147,13 +147,21 @@ def main():
     # CSS для управления отступами и высотой
     st.markdown("""
         <style>
+       
         .st-emotion-cache-1yiq2ps{
         background:#f9fafd;}
+       
         .st-emotion-cache-12fmjuu{
         z-index:-1;}
+        
         #root > div:nth-child(1) > div.withScreencast > div > div > section > div.stMainBlockContainer.block-container.st-emotion-cache-1ibsh2c.ekr3hml4 > div{
+        }
+        
+        #root > div:nth-child(1) > div.withScreencast > div > div > section > div.stMainBlockContainer.block-container.st-emotion-cache-1ibsh2c.ekr3hml4 > div > div > div > div:nth-child(4)>*{
         border: 0.6px solid #bfbfbf;
-        border-radius:22px;}
+        border-radius:22px;
+        background:#fff;}
+        
             .stColumn {
                 padding: 0.5rem;
                 height: 100%;
