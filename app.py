@@ -147,6 +147,9 @@ def main():
     # CSS для управления отступами и высотой
     st.markdown("""
         <style>
+        .st-emotion-cache-1yiq2ps{
+        background:#f9fafd;}
+        
             .stColumn {
                 padding: 0.5rem;
                 height: 100%;
