@@ -198,21 +198,21 @@ def main():
         # Распределение запросов
         st.subheader("Распределение запросов")
         fig_pie = px.pie(filtered_df, names='Тема звонка')
-        fig_pie.update_layout(height=chart_height)
+        fig_pie.update_layout(height=222)
         st.plotly_chart(fig_pie, use_container_width=True)
         
         # График времени ожидания
         st.subheader("Время ожидания")
         fig_line = px.line(filtered_df.groupby('Час')['Время ожидания'].mean().reset_index(),
                           x='Час', y='Время ожидания')
-        fig_line.update_layout(height=chart_height)
+        fig_line.update_layout(height=300)
         st.plotly_chart(fig_line, use_container_width=True)
         
         # График удовлетворенности
         st.subheader("Удовлетворенность")
         satisfaction_data = filtered_df['Оценка удовлетворённости'].value_counts().sort_index()
         fig_bar = px.bar(satisfaction_data)
-        fig_bar.update_layout(height=chart_height)
+        fig_bar.update_layout(height=450)
         st.plotly_chart(fig_bar, use_container_width=True)
 
 if __name__ == "__main__":
