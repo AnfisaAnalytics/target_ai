@@ -114,49 +114,56 @@ def main():
     # Визуализации
     st.header("Детальный анализ")
     
-    # 1. Тепловая карта обращений
-    st.subheader("Объем обращений по времени суток и дням недели")
-    heatmap_data = pd.crosstab(df['День недели'], df['Час'])
-    fig_heatmap = px.imshow(heatmap_data,
-                           labels=dict(x="Час", y="День недели", color="Количество обращений"),
-                           aspect="auto",
-                           color_continuous_scale="Blues")
-    st.plotly_chart(fig_heatmap, use_container_width=True)
+    # Создаем контейнер для первой строки визуализаций (60% / 40%)
+    row1_col1, row1_col2 = st.columns([0.6, 0.4])
     
-    # 2. Распределение запросов
-    col1, col2 = st.columns(2)
+    with row1_col1:
+        # Тепловая карта обращений
+        st.subheader("Объем обращений по времени суток и дням недели")
+        heatmap_data = pd.crosstab(df['День недели'], df['Час'])
+        fig_heatmap = px.imshow(heatmap_data,
+                               labels=dict(x="Час", y="День недели", color="Количество обращений"),
+                               aspect="auto",
+                               color_continuous_scale="Blues")
+        st.plotly_chart(fig_heatmap, use_container_width=True)
     
-    with col1:
+    with row1_col2:
+        # Распределение запросов
         st.subheader("Распределение запросов по категориям")
         fig_pie = px.pie(df, names='Тема звонка', 
                         title="Распределение запросов")
         st.plotly_chart(fig_pie, use_container_width=True)
     
-    with col2:
+    # Создаем контейнер для второй строки визуализаций (30% / 70%)
+    row2_col1, row2_col2 = st.columns([0.3, 0.7])
+    
+    with row2_col1:
+        # Время ожидания в течение дня
         st.subheader("Время ожидания в течение дня")
         fig_line = px.line(df.groupby('Час')['Время ожидания'].mean().reset_index(),
                           x='Час', y='Время ожидания',
                           title="Среднее время ожидания по часам")
         st.plotly_chart(fig_line, use_container_width=True)
     
-    # 3. Причины неудовлетворенности
-    st.subheader("Анализ неудовлетворенности клиентов")
-    satisfaction_data = df['Оценка удовлетворённости'].value_counts().sort_index()
-    fig_bar = px.bar(satisfaction_data,
-                     title="Распределение оценок удовлетворенности")
-    st.plotly_chart(fig_bar, use_container_width=True)
-    
-    # Сводная таблица
-    st.header("Анализ потенциала внедрения AI")
-    ai_potential = pd.DataFrame({
-        'Метрика': ['% типовых запросов', 'Среднее время ожидания', 'Операторов в смену', 'Доступность поддержки', 'Стоимость обработки'],
-        'Значение': [f"{kpis['repeat_percentage']}%", 
-                    f"{kpis['avg_wait_time']} мин", 
-                    "5", # Условное значение
-                    f"{100 - kpis['after_hours_percentage']}%",
-                    f"{kpis['cost_per_call']} ₽"]
-    })
-    st.table(ai_potential)
+    with row2_col2:
+        # Сводная таблица и график удовлетворенности
+        st.subheader("Анализ неудовлетворенности клиентов")
+        satisfaction_data = df['Оценка удовлетворённости'].value_counts().sort_index()
+        fig_bar = px.bar(satisfaction_data,
+                        title="Распределение оценок удовлетворенности")
+        st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Сводная таблица
+        st.header("Анализ потенциала внедрения AI")
+        ai_potential = pd.DataFrame({
+            'Метрика': ['% типовых запросов', 'Среднее время ожидания', 'Операторов в смену', 'Доступность поддержки', 'Стоимость обработки'],
+            'Значение': [f"{kpis['repeat_percentage']}%", 
+                        f"{kpis['avg_wait_time']} мин", 
+                        "5", # Условное значение
+                        f"{100 - kpis['after_hours_percentage']}%",
+                        f"{kpis['cost_per_call']} ₽"]
+        })
+        st.table(ai_potential)
 
 if __name__ == "__main__":
     main()
