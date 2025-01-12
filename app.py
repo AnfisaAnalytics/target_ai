@@ -149,7 +149,11 @@ def main():
         <style>
         .st-emotion-cache-1yiq2ps{
         background:#f9fafd;}
-        
+        .st-emotion-cache-12fmjuu{
+        z-index:-1;}
+        #root > div:nth-child(1) > div.withScreencast > div > div > section > div.stMainBlockContainer.block-container.st-emotion-cache-1ibsh2c.ekr3hml4 > div{
+        border: 0.6px solid #bfbfbf;
+        border-radius:22px;}
             .stColumn {
                 padding: 0.5rem;
                 height: 100%;
