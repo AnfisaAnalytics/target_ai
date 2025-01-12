@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 import numpy as np
 import json
 
@@ -17,19 +17,14 @@ st.set_page_config(
 @st.cache_data
 def load_data():
     try:
-        # Загрузка данных из JSON файла
         with open('data.json', 'r', encoding='utf-8') as file:
             json_data = json.load(file)
-        
-        # Создание DataFrame из данных
         df = pd.DataFrame(json_data['data'])
         
-        # Преобразование строковых дат в datetime
         date_columns = ["Дата и время звонка", "Время ответа", "Дата и время решения вопроса"]
         for col in date_columns:
             df[col] = pd.to_datetime(df[col])
         
-        # Добавление дополнительных колонок для анализа
         df['День недели'] = df['Дата и время звонка'].dt.day_name()
         df['Час'] = df['Дата и время звонка'].dt.hour
         df['Время ожидания'] = (df['Время ответа'] - df['Дата и время звонка']).dt.total_seconds() / 60
@@ -42,6 +37,22 @@ def load_data():
         st.error(f"Ошибка при загрузке данных: {str(e)}")
         return pd.DataFrame()
 
+def filter_data_by_timeframe(df, timeframe):
+    now = pd.Timestamp.now()
+    if timeframe == "Сегодня":
+        return df[df['Дата и время звонка'].dt.date == now.date()]
+    elif timeframe == "Неделя":
+        week_ago = now - timedelta(days=7)
+        return df[df['Дата и время звонка'] >= week_ago]
+    elif timeframe == "Месяц":
+        month_ago = now - timedelta(days=30)
+        return df[df['Дата и время звонка'] >= month_ago]
+    elif timeframe == "Год":
+        year_ago = now - timedelta(days=365)
+        return df[df['Дата и время звонка'] >= year_ago]
+    else:  # "Все данные"
+        return df
+
 # Функции для расчета KPI
 def calculate_kpis(df):
     if df.empty:
@@ -53,22 +64,15 @@ def calculate_kpis(df):
             "after_hours_percentage": 0.0
         }
     
-    # 1. Процент повторяющихся запросов
     total_requests = len(df)
     repeated_requests = df['Тема звонка'].value_counts()
     repeated_requests = repeated_requests[repeated_requests > 1].sum()
     repeat_percentage = (repeated_requests / total_requests) * 100
     
-    # 2. Среднее время ожидания
     avg_wait_time = df['Время ожидания'].mean()
-    
-    # 3. Потерянные обращения (считаем, если время ожидания > 30 минут)
     lost_calls = len(df[df['Время ожидания'] > 30])
-    
-    # 4. Стоимость обращения (условно берем 500 рублей)
     cost_per_call = 500
     
-    # 5. Процент запросов в нерабочее время
     def is_working_hours(hour):
         return 9 <= hour <= 18
     
@@ -93,8 +97,19 @@ def main():
     if df.empty:
         st.warning("Нет данных для отображения")
         return
+    
+    # Кнопки выбора временного периода
+    time_periods = ["Сегодня", "Неделя", "Месяц", "Год", "Все данные"]
+    selected_period = st.radio("Выберите период:", time_periods, horizontal=True)
+    
+    # Фильтрация данных по выбранному периоду
+    filtered_df = filter_data_by_timeframe(df, selected_period)
+    
+    if filtered_df.empty:
+        st.warning(f"Нет данных за выбранный период: {selected_period}")
+        return
         
-    kpis = calculate_kpis(df)
+    kpis = calculate_kpis(filtered_df)
     
     # KPI секция
     st.header("Ключевые показатели")
@@ -126,13 +141,13 @@ def main():
         </style>
     """, unsafe_allow_html=True)
     
-    # Создаем контейнер для первой строки визуализаций (три равные колонки)
-    row1_col1, row1_col2, row1_col3 = st.columns([1, 1, 1])
+    # Первая строка: две колонки
+    row1_col1, row1_col2 = st.columns([1, 1])
     
     with row1_col1:
         # Тепловая карта обращений
         st.subheader("Объем обращений")
-        heatmap_data = pd.crosstab(df['День недели'], df['Час'])
+        heatmap_data = pd.crosstab(filtered_df['День недели'], filtered_df['Час'])
         fig_heatmap = px.imshow(heatmap_data,
                                labels=dict(x="Час", y="День недели", color="Количество обращений"),
                                aspect="auto",
@@ -140,27 +155,31 @@ def main():
         st.plotly_chart(fig_heatmap, use_container_width=True)
     
     with row1_col2:
-        # Распределение запросов
-        st.subheader("Распределение запросов")
-        fig_pie = px.pie(df, names='Тема звонка', 
-                        title="Распределение запросов")
-        st.plotly_chart(fig_pie, use_container_width=True)
+        # Создаем две подстроки во второй колонке
+        subcol1, subcol2 = st.columns([1, 1])
+        
+        with subcol1:
+            # Распределение запросов
+            st.subheader("Распределение запросов")
+            fig_pie = px.pie(filtered_df, names='Тема звонка', 
+                            title="Распределение запросов")
+            st.plotly_chart(fig_pie, use_container_width=True)
+        
+        with subcol2:
+            # График времени ожидания
+            st.subheader("Время ожидания")
+            fig_line = px.line(filtered_df.groupby('Час')['Время ожидания'].mean().reset_index(),
+                              x='Час', y='Время ожидания',
+                              title="Среднее время ожидания")
+            st.plotly_chart(fig_line, use_container_width=True)
     
-    with row1_col3:
-        # График времени ожидания
-        st.subheader("Время ожидания")
-        fig_line = px.line(df.groupby('Час')['Время ожидания'].mean().reset_index(),
-                          x='Час', y='Время ожидания',
-                          title="Среднее время ожидания")
-        st.plotly_chart(fig_line, use_container_width=True)
-    
-    # Создаем контейнер для второй строки визуализаций (30% / 70%)
+    # Вторая строка: две колонки (30/70)
     row2_col1, row2_col2 = st.columns([0.3, 0.7])
     
     with row2_col1:
         # График удовлетворенности
         st.subheader("Удовлетворенность")
-        satisfaction_data = df['Оценка удовлетворённости'].value_counts().sort_index()
+        satisfaction_data = filtered_df['Оценка удовлетворённости'].value_counts().sort_index()
         fig_bar = px.bar(satisfaction_data,
                         title="Оценки удовлетворенности")
         st.plotly_chart(fig_bar, use_container_width=True)
