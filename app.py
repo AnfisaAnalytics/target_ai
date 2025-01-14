@@ -1,10 +1,24 @@
 import streamlit as st
 import plotly.express as px
+import psycopg2
+import pandas as pd
 
+def connect_to_db():
+    try:
+        conn = psycopg2.connect(
+            host="rc1a-p8bp15mmxsfwpbt0.mdb.yandexcloud.net",
+            port="6432",
+            database="db1",
+            user="test_user",
+            password="j2M{CnnFq@"
+        )
+        return conn
+    except Exception as e:
+        print(f"Error connecting to database: {e}")
+        return None
     
 def get_response_times():
     """Execute query to get response times"""
-    
     query = """
     WITH ranked_messages AS (
         SELECT 
@@ -112,5 +126,3 @@ if df is not None:
     st.dataframe(df)
 else:
     st.error("Failed to fetch data from the database. Please check your connection settings.")
-    
-    
