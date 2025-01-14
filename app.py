@@ -14,11 +14,11 @@ def connect_to_db():
         )
         return conn
     except Exception as e:
-        print(f"Error connecting to database: {e}")
+        print(f"Ошибка подключения к базе данных: {e}")
         return None
     
 def get_response_times():
-    """Execute query to get response times"""
+    """Выполнить запрос для получения времени ответа"""
     query = """
     WITH ranked_messages AS (
         SELECT 
@@ -41,14 +41,14 @@ def get_response_times():
                 WHEN rm.type = 'outgoing_chat_message' 
                 AND rm.prev_type = 'incoming_chat_message' THEN
                     CASE 
-                        -- If previous message was during non-working hours (00:00-09:30)
+                        -- Если предыдущее сообщение было в нерабочее время (00:00-09:30)
                         WHEN TO_TIMESTAMP(rm.prev_created_at)::time < TIME '09:30:00' 
                         AND TO_TIMESTAMP(rm.created_at)::time >= TIME '09:30:00' THEN
                             EXTRACT(EPOCH FROM (
                                 TO_TIMESTAMP(rm.created_at) - 
                                 TO_TIMESTAMP(rm.prev_created_at)::date + INTERVAL '9 hours 30 minutes'
                             ))
-                        -- If current response is after working hours
+                        -- Если текущий ответ после рабочего времени
                         WHEN TO_TIMESTAMP(rm.created_at)::time > TIME '00:00:00' THEN
                             EXTRACT(EPOCH FROM (
                                 TO_TIMESTAMP(rm.created_at) - 
@@ -81,48 +81,58 @@ def get_response_times():
             return df
         return None
     except Exception as e:
-        print(f"Error executing query: {e}")
+        print(f"Ошибка выполнения запроса: {e}")
         return None
 
-st.set_page_config(page_title="Manager Response Times Dashboard", layout="wide")
+st.set_page_config(page_title="Анализ времени ответа менеджеров", layout="wide")
 
-st.title("Manager Response Times Analysis")
+st.title("Анализ времени ответа службы поддержки")
 
-# Get the data
+# Получение данных
 df = get_response_times()
 
 if df is not None:
-    # Main metrics
+    # Основные метрики
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Total Managers", len(df))
+        st.metric("Всего менеджеров", len(df))
     with col2:
-        st.metric("Average Response Time (min)", f"{df['avg_response_time_minutes'].mean():.2f}")
+        st.metric("Среднее время ответа (мин)", f"{df['avg_response_time_minutes'].mean():.2f}")
     with col3:
-        st.metric("Total Responses", df['total_responses'].sum())
+        st.metric("Всего обращений", df['total_responses'].sum())
 
-    # Response times bar chart
+    # График среднего времени ответа
     fig1 = px.bar(
         df,
         x='name_mop',
         y='avg_response_time_minutes',
-        title='Average Response Time by Manager',
-        labels={'name_mop': 'Manager', 'avg_response_time_minutes': 'Average Response Time (minutes)'}
+        title='Среднее время ответа по менеджерам',
+        labels={
+            'name_mop': 'Менеджер', 
+            'avg_response_time_minutes': 'Среднее время ответа (минуты)'
+        }
     )
     st.plotly_chart(fig1, use_container_width=True)
 
-    # Response count bar chart
+    # График количества ответов
     fig2 = px.bar(
         df,
         x='name_mop',
         y='total_responses',
-        title='Total Responses by Manager',
-        labels={'name_mop': 'Manager', 'total_responses': 'Total Responses'}
+        title='Количество обработанных обращений по менеджерам',
+        labels={
+            'name_mop': 'Менеджер', 
+            'total_responses': 'Количество обращений'
+        }
     )
     st.plotly_chart(fig2, use_container_width=True)
 
-    # Detailed data table
-    st.subheader("Detailed Response Time Data")
-    st.dataframe(df)
-else:
-    st.error("Failed to fetch data from the database. Please check your connection settings.")
+    # Детальная таблица данных
+    st.subheader("Детальная статистика по менеджерам")
+    st.dataframe(df.rename(columns={
+        'name_mop': 'Менеджер',
+        'total_responses': 'Всего обращений',
+        'avg_response_time_minutes': 'Среднее время ответа (мин)',
+        'min_response_time_minutes': 'Минимальное время ответа (мин)',
+        'max_response_time_minutes': 'Максимальное время ответа (мин)'
+    }))
